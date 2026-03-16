@@ -1,12 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from '@/lib/supabase';
 
 interface Appointment {
   id: string;
@@ -32,6 +27,27 @@ interface Lead {
   contacted: boolean;
   created_at: string;
 }
+
+type AppointmentFormField =
+  | 'patient_name'
+  | 'patient_phone'
+  | 'patient_email'
+  | 'appointment_date'
+  | 'appointment_time'
+  | 'notes';
+
+const APPOINTMENT_FORM_FIELDS: Array<{
+  label: string;
+  key: AppointmentFormField;
+  type: string;
+}> = [
+  { label: 'Patient name *', key: 'patient_name', type: 'text' },
+  { label: 'Phone *', key: 'patient_phone', type: 'text' },
+  { label: 'Email', key: 'patient_email', type: 'email' },
+  { label: 'Date *', key: 'appointment_date', type: 'date' },
+  { label: 'Time *', key: 'appointment_time', type: 'time' },
+  { label: 'Notes', key: 'notes', type: 'text' },
+];
 
 const light = {
   bg: '#f8f9fb', card: '#ffffff', sidebar: '#0f0f1a',
@@ -69,15 +85,6 @@ export default function Dashboard() {
 
   const c = theme === 'light' ? light : dark;
 
-  useEffect(() => {
-    fetchAll();
-    const sub = supabase.channel('realtime-all')
-      .on('postgres_changes',{event:'*',schema:'public',table:'appointments'},fetchAll)
-      .on('postgres_changes',{event:'*',schema:'public',table:'leads'},fetchAll)
-      .subscribe();
-    return () => { supabase.removeChannel(sub); };
-  }, []);
-
   async function fetchAll() {
     setLoading(true);
     const [{ data: a },{ data: l }] = await Promise.all([
@@ -88,6 +95,17 @@ export default function Dashboard() {
     setLeads(l||[]);
     setLoading(false);
   }
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchAll();
+    });
+    const sub = supabase.channel('realtime-all')
+      .on('postgres_changes',{event:'*',schema:'public',table:'appointments'},fetchAll)
+      .on('postgres_changes',{event:'*',schema:'public',table:'leads'},fetchAll)
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, []);
 
   function showToast(msg:string) {
     setToast(msg);
@@ -215,7 +233,7 @@ export default function Dashboard() {
               ))}
             </div>
             <div style={{...card,overflow:'hidden'}}>
-              <div style={{padding:'16px 22px',borderBottom:`1px solid ${c.border}`}}><span style={{fontWeight:600,fontSize:14,color:c.text}}>Today's appointments — {todayAppts.length} total</span></div>
+              <div style={{padding:'16px 22px',borderBottom:`1px solid ${c.border}`}}><span style={{fontWeight:600,fontSize:14,color:c.text}}>Today&apos;s appointments — {todayAppts.length} total</span></div>
               {todayAppts.length===0?<div style={{padding:32,textAlign:'center',color:c.muted,fontSize:13}}>No appointments today</div>:(
                 <table style={{width:'100%',borderCollapse:'collapse'}}>
                   <thead><tr style={{background:c.tableHead}}>{['Patient','Time','Type','Status'].map(h=><th key={h} style={{padding:'10px 20px',textAlign:'left',fontSize:11,color:c.muted,fontWeight:600,letterSpacing:0.4,textTransform:'uppercase'}}>{h}</th>)}</tr></thead>
@@ -321,10 +339,10 @@ export default function Dashboard() {
               <button onClick={()=>setEditAppt(null)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:c.muted}}>✕</button>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:14}}>
-              {[{label:'Patient name *',key:'patient_name',type:'text'},{label:'Phone *',key:'patient_phone',type:'text'},{label:'Email',key:'patient_email',type:'email'},{label:'Date *',key:'appointment_date',type:'date'},{label:'Time *',key:'appointment_time',type:'time'},{label:'Notes',key:'notes',type:'text'}].map(field=>(
+              {APPOINTMENT_FORM_FIELDS.map(field=>(
                 <div key={field.key}>
                   <label style={labelStyle}>{field.label}</label>
-                  <input type={field.type} value={(editAppt as any)[field.key]||''} onChange={e=>setEditAppt({...editAppt,[field.key]:e.target.value})} style={inputStyle}/>
+                  <input type={field.type} value={editAppt[field.key]||''} onChange={e=>setEditAppt({...editAppt,[field.key]:e.target.value})} style={inputStyle}/>
                 </div>
               ))}
               <div><label style={labelStyle}>Appointment type *</label><select value={editAppt.appointment_type} onChange={e=>setEditAppt({...editAppt,appointment_type:e.target.value})} style={inputStyle}>{TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
@@ -346,10 +364,10 @@ export default function Dashboard() {
               <button onClick={()=>setShowAddAppt(false)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:c.muted}}>✕</button>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:14}}>
-              {[{label:'Patient name *',key:'patient_name',type:'text'},{label:'Phone *',key:'patient_phone',type:'text'},{label:'Email',key:'patient_email',type:'email'},{label:'Date *',key:'appointment_date',type:'date'},{label:'Time *',key:'appointment_time',type:'time'},{label:'Notes',key:'notes',type:'text'}].map(field=>(
+              {APPOINTMENT_FORM_FIELDS.map(field=>(
                 <div key={field.key}>
                   <label style={labelStyle}>{field.label}</label>
-                  <input type={field.type} value={(newAppt as any)[field.key]||''} onChange={e=>setNewAppt({...newAppt,[field.key]:e.target.value})} style={inputStyle}/>
+                  <input type={field.type} value={newAppt[field.key]||''} onChange={e=>setNewAppt({...newAppt,[field.key]:e.target.value})} style={inputStyle}/>
                 </div>
               ))}
               <div><label style={labelStyle}>Appointment type *</label><select value={newAppt.appointment_type} onChange={e=>setNewAppt({...newAppt,appointment_type:e.target.value})} style={inputStyle}>{TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
