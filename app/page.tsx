@@ -19,9 +19,9 @@ interface Appointment {
   is_new_patient: boolean;
   status: string;
   notes: string;
+  booked_via: string;
   created_at: string;
 }
-
 interface Lead {
   id: string;
   patient_name: string;
